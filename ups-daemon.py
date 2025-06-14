@@ -1,11 +1,15 @@
 import logging
+import os
 import subprocess
 import time
 
 import serial
 
-logging.basicConfig(filename='/var/log/ups_daemon.log', level=logging.INFO,
-                    format='[%(asctime)s] %(message)s')
+logPath = "\\ups"
+logFile = logPath + "\\ups_daemon.log"
+if not os.path.exists(logPath) or not os.path.exists(logPath):
+    os.mkdir(logPath, 0o777)
+logging.basicConfig(filename=logFile, level=logging.INFO, format='[%(asctime)s] %(message)s')
 
 logging.info("UPS Daemon is running...")
 port = 'COM5'
@@ -21,9 +25,9 @@ ser = serial.Serial(
     dsrdtr=False  # 硬件流控（关闭）
 )
 
-counter = 0
-cmd = ["shutdown", "-h", "+0.1"]
-# cmd = ['shutdown', '-s', '-t', '5']
+counter = 1
+# cmd = ["shutdown", "-h", "+0.1"]
+cmd = ['shutdown', '-s', '-t', '5']
 code = 'ascii'
 y = 'Y'.encode(code)
 q = 'Q'.encode(code)
@@ -42,15 +46,8 @@ while True:
             continue
         smStr = sm.decode(code).replace('\r', '').replace('\n', '')
         if smStr.find('SM') == -1:
-            initOnOff = True
             logging.warning("Set UPS to Smart Mode Fail")
             continue
-        if smStr.find('!') != -1:
-            logging.warning(f"UPS is Unstable times {counter}")
-            counter += 1
-        else:
-            logging.info(f"UPS is Unstable times Recover {counter}")
-            counter = 0
         #
         ser.write(q)
         time.sleep(1)
@@ -61,7 +58,7 @@ while True:
         status = rep[0]
         logging.info(f"UPS Status: {status:08b}")
         repStr = rep.decode(code).replace('\r', '').replace('\n', '')
-        if repStr.find('!') != -1:
+        if smStr.find('!') != -1 or repStr.find('!') != -1:
             logging.warning(f"UPS is Unstable times {counter}")
             counter += 1
         else:
